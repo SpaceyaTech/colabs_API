@@ -4,16 +4,16 @@ Node.js + TypeScript REST API for the SpaceYaTech open-source collaboration & fr
 
 ## Tech Stack
 
-| Layer        | Technology                          |
-| ------------ | ----------------------------------- |
-| Runtime      | Node.js 20+                         |
-| Framework    | Express.js + TypeScript             |
-| Database     | PostgreSQL 16 (Prisma ORM)          |
-| Cache        | Redis 7                             |
-| Auth         | GitHub OAuth 2.0 + JWT              |
-| File Storage | MinIO                               |
-| Validation   | Zod                                 |
-| Testing      | Vitest                              |
+| Layer        | Technology                 |
+| ------------ | -------------------------- |
+| Runtime      | Node.js 20+                |
+| Framework    | Express.js + TypeScript    |
+| Database     | PostgreSQL 16 (Prisma ORM) |
+| Cache        | Redis 7                    |
+| Auth         | GitHub OAuth 2.0 + JWT     |
+| File Storage | MinIO                      |
+| Validation   | Zod                        |
+| Testing      | Vitest                     |
 
 ---
 
@@ -167,4 +167,8 @@ Part of the [SpaceYaTech](https://github.com/SpaceyaTech) community. PRs welcome
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE)
+This project is licensed under the **MIT License** — see the [LICENSE](./LICENSE) file for full details.
+
+You are free to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the software, subject to the conditions in the license.
+
+---
