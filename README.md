@@ -170,5 +170,3 @@ Part of the [SpaceYaTech](https://github.com/SpaceyaTech) community. PRs welcome
 This project is licensed under the **MIT License** — see the [LICENSE](./LICENSE) file for full details.
 
 You are free to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the software, subject to the conditions in the license.
-
----
