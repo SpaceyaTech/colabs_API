@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CONTRIBUTOR
+  PROJECT_OWNER
+  CLIENT
+  ADMIN
+}
+
+enum GigStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum IssueStatus {
+  OPEN
+  CLAIMED
+  IN_REVIEW
+  CLOSED
+}
+
+model User {
+  id              String    @id @default(cuid())
+  githubId        String    @unique
+  username        String    @unique
+  name            String?
+  email           String?
+  avatarUrl       String?
+  bio             String?
+  location        String?
+  websiteUrl      String?
+  githubUrl       String?
+  role            Role      @default(CONTRIBUTOR)
+  contributorScore Int      @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  projects        Project[]
+  issueClaims     IssueClaim[]
+  gigsPosted      Gig[]        @relation("GigClient")
+  proposals       Proposal[]
+  teamsOwned      Team[]       @relation("TeamOwner")
+  teamMemberships TeamMember[]
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  githubRepoUrl String @unique
+  name        String
+  description String?
+  language    String?
+  stars       Int      @default(0)
+  forks       Int      @default(0)
+  topics      String[]
+  logoUrl     String?
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  issues      Issue[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Issue {
+  id          String      @id @default(cuid())
+  githubIssueId Int
+  title       String
+  body        String?
+  url         String
+  labels      String[]
+  status      IssueStatus @default(OPEN)
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id])
+  claims      IssueClaim[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([projectId, githubIssueId])
+}
+
+model IssueClaim {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  claimedAt DateTime @default(now())
+
+  @@unique([userId, issueId])
+}
+
+model Gig {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  budget      Float
+  currency    String    @default("USD")
+  skills      String[]
+  status      GigStatus @default(OPEN)
+  deadline    DateTime?
+  attachments String[]
+  clientId    String
+  client      User      @relation("GigClient", fields: [clientId], references: [id])
+  proposals   Proposal[]
+  teamId      String?
+  team        Team?     @relation(fields: [teamId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Proposal {
+  id          String         @id @default(cuid())
+  coverLetter String
+  bidAmount   Float
+  currency    String         @default("USD")
+  deliveryDays Int
+  status      ProposalStatus @default(PENDING)
+  gigId       String
+  gig         Gig            @relation(fields: [gigId], references: [id])
+  userId      String
+  user        User           @relation(fields: [userId], references: [id])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([gigId, userId])
+}
+
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  logoUrl     String?
+  ownerId     String
+  owner       User         @relation("TeamOwner", fields: [ownerId], references: [id])
+  members     TeamMember[]
+  gigs        Gig[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  team     Team     @relation(fields: [teamId], references: [id])
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  joinedAt DateTime @default(now())
+
+  @@unique([teamId, userId])
+}
