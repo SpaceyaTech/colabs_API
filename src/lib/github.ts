@@ -44,6 +44,44 @@ export const getUserContributions = async (username: string) => {
   return data;
 };
 
+export const fetchGitHubContributionCalendar = async (username: string) => {
+  const cacheKey = `github:calendar:${username}`;
+  const cached = await cacheGet(cacheKey);
+  if (cached) return cached;
+
+  const query = `
+    query($username: String!) {
+      user(login: $username) {
+        contributionsCollection {
+          contributionCalendar {
+            calendar {
+              dayOfMonth
+              month
+              contributionCount
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const { data } = await githubApi.post('/graphql', {
+    query,
+    variables: { username },
+  });
+
+  const calendar = data.data.user?.contributionsCollection?.contributionCalendar?.calendar || [];
+
+  const currentYear = new Date().getFullYear();
+  const formattedData = calendar.map((item: any) => ({
+    date: `${currentYear}-${String(item.month).padStart(2, '0')}-${String(item.dayOfMonth).padStart(2, '0')}`,
+    count: item.contributionCount,
+  }));
+
+  await cacheSet(cacheKey, formattedData, 3600); // cache 1 hour
+  return formattedData;
+};
+
 export const parseRepoUrl = (url: string): { owner: string; repo: string } | null => {
   const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
   if (!match) return null;

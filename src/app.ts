@@ -23,6 +23,7 @@ import issueRoutes from "./modules/issues/issues.routes";
 import gigRoutes from "./modules/gigs/gigs.routes";
 import proposalRoutes from "./modules/proposals/proposals.routes";
 import teamRoutes from "./modules/teams/teams.routes";
+import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 
 const app = express();
 
@@ -82,6 +83,7 @@ app.use("/api/issues", issueRoutes);
 app.use("/api/gigs", gigRoutes);
 app.use("/api/gigs/:gigId/proposals", proposalRoutes);
 app.use("/api/teams", teamRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // ── 404 Handler ──────────────────────────────────────────
 app.use((_req, res) => {
