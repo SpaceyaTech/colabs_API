@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../middleware/errorHandler';
-import { getRepoInfo, getRepoIssues, parseRepoUrl } from '../../lib/github';
+import { getRepoInfo, getRepoIssues, parseRepoUrl, fetchUserRepositories } from '../../lib/github';
 import { uploadFile } from '../../lib/minio';
 
 const createProjectSchema = z.object({
@@ -13,6 +13,12 @@ export const listProjects = async (req: Request, res: Response) => {
   const { page = '1', limit = '20', language, search } = req.query as Record<string, string>;
 
   const where: any = {};
+
+  // If not requesting own projects, only show collaborative public ones
+  if (!req.user || req.user.id !== req.query.ownerId) {
+    where.isCollaborative = true;
+  }
+
   if (language) where.language = language;
   if (search) where.name = { contains: search, mode: 'insensitive' };
 
@@ -102,4 +108,64 @@ export const syncProjectIssues = async (req: Request, res: Response) => {
 
   await Promise.all(upserts);
   res.json({ synced: upserts.length });
+};
+
+export const syncRepositories = async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError('User not found', 404);
+
+  if (!user.githubAccessToken) {
+    throw new AppError('GitHub account not connected', 401);
+  }
+
+  // Rate limit: once per 15 minutes
+  if (user.lastSyncedAt) {
+    const diff = new Date().getTime() - user.lastSyncedAt.getTime();
+    if (diff < 15 * 60 * 1000) {
+      const waitTime = Math.ceil((15 * 60 * 1000 - diff) / 1000 / 60);
+      throw new AppError(`Sync limit reached. Please try again in ${waitTime} minute(s).`, 429);
+    }
+  }
+
+  const repos = await fetchUserRepositories(user.githubAccessToken);
+
+  const upserts = repos.map((repo: any) => {
+    const githubRepoUrl = `https://github.com/${repo.owner.login}/${repo.name}`;
+    return prisma.project.upsert({
+      where: { githubRepoUrl },
+      update: {
+        name: repo.full_name,
+        description: repo.description,
+        language: repo.language,
+        stars: repo.stargazers_count,
+        forks: repo.forks_count,
+        topics: repo.topics || [],
+        // Preserve isCollaborative flag on update
+      },
+      create: {
+        githubRepoUrl,
+        name: repo.full_name,
+        description: repo.description,
+        language: repo.language,
+        stars: repo.stargazers_count,
+        forks: repo.forks_count,
+        topics: repo.topics || [],
+        ownerId: userId,
+        isCollaborative: false,
+      },
+    });
+  });
+
+  await Promise.all(upserts);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { lastSyncedAt: new Date() },
+  });
+
+  res.json({
+    message: 'Repositories synced successfully',
+    count: repos.length
+  });
 };

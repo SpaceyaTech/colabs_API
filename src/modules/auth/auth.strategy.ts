@@ -21,6 +21,8 @@ export const configurePassport = () => {
               email: profile.emails?.[0]?.value,
               avatarUrl: profile.photos?.[0]?.value,
               githubUrl: profile.profileUrl,
+              githubAccessToken: _accessToken,
+              githubRefreshToken: _refreshToken,
             },
             create: {
               githubId: String(profile.id),
@@ -29,6 +31,8 @@ export const configurePassport = () => {
               email: profile.emails?.[0]?.value,
               avatarUrl: profile.photos?.[0]?.value,
               githubUrl: profile.profileUrl,
+              githubAccessToken: _accessToken,
+              githubRefreshToken: _refreshToken,
             },
           });
           return done(null, user);

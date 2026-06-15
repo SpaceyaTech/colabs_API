@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { listProjects, createProject, getProject, syncProjectIssues } from './projects.controller';
+import { listProjects, createProject, getProject, syncProjectIssues, syncRepositories } from './projects.controller';
 import { authenticate } from '../../middleware/auth';
 import { upload } from '../../lib/minio';
 
@@ -123,5 +123,23 @@ router.get('/:id', getProject);
  *         description: Project not found
  */
 router.post('/:id/sync-issues', authenticate, syncProjectIssues);
+
+/**
+ * @swagger
+ * /api/projects/sync-repos:
+ *   post:
+ *     summary: Sync all repositories from GitHub for the connected user
+ *     tags: [Projects]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Repositories synced successfully
+ *       401:
+ *         description: Not authenticated
+ *       429:
+ *         description: Sync limit reached
+ */
+router.post('/sync-repos', authenticate, syncRepositories);
 
 export default router;
