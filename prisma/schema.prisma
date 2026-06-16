@@ -48,6 +48,9 @@ model User {
   githubUrl       String?
   role            Role      @default(CONTRIBUTOR)
   contributorScore Int      @default(0)
+  githubAccessToken String?
+  githubRefreshToken String?
+  lastSyncedAt    DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -69,6 +72,7 @@ model Project {
   forks       Int      @default(0)
   topics      String[]
   logoUrl     String?
+  isCollaborative Boolean @default(false)
   ownerId     String
   owner       User     @relation(fields: [ownerId], references: [id])
   issues      Issue[]
