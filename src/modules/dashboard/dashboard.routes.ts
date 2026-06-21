@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDashboardStats } from './dashboard.controller';
-import { authenticate } from '../../middleware/auth';
+import { authenticate, requireVerifiedEmail } from '../../middleware/auth';
 
 const router = Router();
 
@@ -66,6 +66,6 @@ const router = Router();
  *                       date: { type: string, format: date }
  *                       count: { type: integer }
  */
-router.get('/stats', authenticate, getDashboardStats);
+router.get('/stats', authenticate, requireVerifiedEmail, getDashboardStats);
 
 export default router;

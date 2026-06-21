@@ -36,20 +36,28 @@ enum IssueStatus {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  githubId        String    @unique
-  username        String    @unique
-  name            String?
-  email           String?
-  avatarUrl       String?
-  bio             String?
-  location        String?
-  websiteUrl      String?
-  githubUrl       String?
-  role            Role      @default(CONTRIBUTOR)
-  contributorScore Int      @default(0)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                       String    @id @default(cuid())
+  githubId                 String?   @unique
+  googleId                 String?   @unique
+  username                 String    @unique
+  name                     String?
+  email                    String?   @unique
+  passwordHash             String?
+  emailVerified            Boolean   @default(false)
+  emailVerifiedAt          DateTime?
+  emailVerificationToken   String?   @unique
+  emailVerificationExpires DateTime?
+  passwordResetToken       String?   @unique
+  passwordResetExpires     DateTime?
+  avatarUrl                String?
+  bio                      String?
+  location                 String?
+  websiteUrl               String?
+  githubUrl                String?
+  role                     Role      @default(CONTRIBUTOR)
+  contributorScore         Int       @default(0)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   projects        Project[]
   issueClaims     IssueClaim[]

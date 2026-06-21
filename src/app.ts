@@ -1,3 +1,4 @@
+import "express-async-errors";
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -11,6 +12,7 @@ import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env";
 import { swaggerSpec } from "./config/swagger";
 import { connectRedis } from "./lib/redis";
+import { startEmailWorker } from "./lib/emailWorker";
 import { configurePassport } from "./modules/auth/auth.strategy";
 import { errorHandler } from "./middleware/errorHandler";
 import { generalLimiter } from "./middleware/rateLimiter";
@@ -64,7 +66,19 @@ configurePassport();
 app.use(passport.initialize());
 
 // ── API Docs ─────────────────────────────────────────────
-app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use(
+  "/api/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    swaggerOptions: {
+      tagsSorter: (a: string, b: string) => {
+        if (a === "Auth") return -1;
+        if (b === "Auth") return 1;
+        return a.localeCompare(b);
+      },
+    },
+  })
+);
 
 // ── Health Check ─────────────────────────────────────────
 app.get("/health", (_req, res) => {
@@ -96,6 +110,7 @@ app.use(errorHandler);
 // ── Start ────────────────────────────────────────────────
 const start = async () => {
   await connectRedis();
+  startEmailWorker();
   const port = parseInt(env.PORT);
   app.listen(port, () => {
     console.log(`🚀 Colabs API running on http://localhost:${port}`);
