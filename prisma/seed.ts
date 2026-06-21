@@ -7,7 +7,10 @@ async function main() {
 
   const user = await prisma.user.upsert({
     where: { githubId: '0000000' },
-    update: {},
+    update: {
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
+    },
     create: {
       githubId: '0000000',
       username: 'spaceyatech',
@@ -15,6 +18,8 @@ async function main() {
       email: 'hello@spaceyatech.com',
       bio: 'Africa\'s fastest growing open-source community',
       role: 'ADMIN',
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
   });
 

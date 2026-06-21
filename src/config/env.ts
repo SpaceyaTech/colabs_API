@@ -3,6 +3,16 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+/** Parse .env booleans — z.coerce.boolean() treats the string "false" as true */
+const envBoolean = (defaultValue = false) =>
+  z
+    .string()
+    .optional()
+    .transform((value) => {
+      if (value === undefined || value === '') return defaultValue;
+      return ['true', '1', 'yes', 'on'].includes(value.toLowerCase());
+    });
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('8000'),
@@ -18,9 +28,23 @@ const envSchema = z.object({
   GITHUB_CALLBACK_URL: z.string().url(),
   GITHUB_API_TOKEN: z.string().optional(),
 
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CALLBACK_URL: z.string().url().optional(),
+
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().default(587),
+  SMTP_SECURE: envBoolean(false),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+
+  EMAIL_MAX_RETRIES: z.coerce.number().default(5),
+  EMAIL_RETRY_BASE_MS: z.coerce.number().default(30_000),
+
   MINIO_ENDPOINT: z.string().default('localhost'),
   MINIO_PORT: z.coerce.number().default(9000),
-  MINIO_USE_SSL: z.coerce.boolean().default(false),
+  MINIO_USE_SSL: envBoolean(false),
   MINIO_ROOT_USER: z.string().min(1, 'MINIO_ROOT_USER is required'),
   MINIO_ROOT_PASSWORD: z.string().min(1, 'MINIO_ROOT_PASSWORD is required'),
   MINIO_BUCKET_NAME: z.string().default('colabs'),

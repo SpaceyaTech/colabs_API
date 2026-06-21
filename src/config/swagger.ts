@@ -6,11 +6,28 @@ const options: swaggerJsdoc.Options = {
     info: {
       title: 'Colabs API',
       version: '1.0.0',
-      description: 'REST API for the SpaceYaTech open-source collaboration & freelance platform',
+      description:
+        'REST API for the SpaceYaTech open-source collaboration & freelance platform. ' +
+        'Authentication: email/password registration, email verification, GitHub OAuth, Google OAuth, and JWT session cookies. ' +
+        'See the Auth tag for all auth endpoints.',
     },
     servers: [
       { url: 'http://localhost:8000', description: 'Local development' },
       { url: 'https://api.sytcolabs.vercel.app', description: 'Production' },
+    ],
+    tags: [
+      {
+        name: 'Auth',
+        description:
+          'Email/password registration, email verification, GitHub OAuth, Google OAuth, and session management.',
+      },
+      { name: 'Users', description: 'User profiles and contribution stats' },
+      { name: 'Dashboard', description: 'User dashboard analytics' },
+      { name: 'Projects', description: 'Open-source project registration and management' },
+      { name: 'Issues', description: 'Open-source issues available for contributors to claim' },
+      { name: 'Gigs', description: 'Freelance gig marketplace' },
+      { name: 'Proposals', description: 'Gig proposals from freelancers' },
+      { name: 'Teams', description: 'Collaborative teams' },
     ],
     components: {
       securitySchemes: {
@@ -25,7 +42,8 @@ const options: swaggerJsdoc.Options = {
           type: 'object',
           properties: {
             id: { type: 'string' },
-            githubId: { type: 'string' },
+            githubId: { type: 'string', nullable: true },
+            googleId: { type: 'string', nullable: true },
             username: { type: 'string' },
             name: { type: 'string', nullable: true },
             email: { type: 'string', nullable: true },
@@ -36,6 +54,7 @@ const options: swaggerJsdoc.Options = {
             githubUrl: { type: 'string', nullable: true },
             role: { type: 'string', enum: ['CONTRIBUTOR', 'PROJECT_OWNER', 'CLIENT', 'ADMIN'] },
             contributorScore: { type: 'integer' },
+            emailVerified: { type: 'boolean' },
             createdAt: { type: 'string', format: 'date-time' },
           },
         },
@@ -116,10 +135,118 @@ const options: swaggerJsdoc.Options = {
             error: { type: 'string' },
           },
         },
+        ErrorWithCode: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string', example: 'EMAIL_NOT_VERIFIED' },
+          },
+        },
+        ValidationError: {
+          type: 'object',
+          properties: {
+            error: { type: 'string', example: 'Validation failed' },
+            details: { type: 'object' },
+          },
+        },
+        MessageResponse: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+          },
+        },
+        RegisterRequest: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: { type: 'string', format: 'email', example: 'you@example.com' },
+            password: { type: 'string', minLength: 6, example: 'securepass123' },
+            name: { type: 'string', example: 'Jane Doe' },
+          },
+        },
+        LoginRequest: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: { type: 'string', format: 'email', example: 'you@example.com' },
+            password: { type: 'string', example: 'securepass123' },
+          },
+        },
+        ResendVerificationRequest: {
+          type: 'object',
+          required: ['email'],
+          properties: {
+            email: { type: 'string', format: 'email', example: 'you@example.com' },
+          },
+        },
+        RegisterResponse: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            user: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                email: { type: 'string' },
+                emailVerified: { type: 'boolean', example: false },
+              },
+            },
+          },
+        },
+        LoginResponse: {
+          type: 'object',
+          properties: {
+            user: { $ref: '#/components/schemas/User' },
+          },
+        },
+        VerifyEmailResponse: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', example: 'Email verified successfully' },
+            user: { $ref: '#/components/schemas/User' },
+          },
+        },
       },
     },
   },
   apis: ['./src/modules/**/*.routes.ts'],
 };
 
-export const swaggerSpec = swaggerJsdoc(options);
+const AUTH_PATH_ORDER = [
+  '/api/auth/register',
+  '/api/auth/login',
+  '/api/auth/verify-email',
+  '/api/auth/resend-verification',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/auth/change-password',
+  '/api/auth/github',
+  '/api/auth/github/callback',
+  '/api/auth/google',
+  '/api/auth/google/callback',
+  '/api/auth/me',
+  '/api/auth/logout',
+];
+
+const sortPathsAuthFirst = (spec: Record<string, unknown>) => {
+  const paths = spec.paths as Record<string, unknown> | undefined;
+  if (!paths) return spec;
+
+  const rank = (path: string) => {
+    const authIndex = AUTH_PATH_ORDER.indexOf(path);
+    if (authIndex >= 0) return authIndex;
+    if (path.startsWith('/api/auth')) return AUTH_PATH_ORDER.length;
+    return AUTH_PATH_ORDER.length + 1;
+  };
+
+  const sorted = Object.entries(paths).sort(([a], [b]) => {
+    const rankDiff = rank(a) - rank(b);
+    return rankDiff !== 0 ? rankDiff : a.localeCompare(b);
+  });
+
+  return { ...spec, paths: Object.fromEntries(sorted) };
+};
+
+export const swaggerSpec = sortPathsAuthFirst(
+  swaggerJsdoc(options) as Record<string, unknown>
+);
