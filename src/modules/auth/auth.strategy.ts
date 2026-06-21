@@ -1,7 +1,8 @@
 import passport from 'passport';
 import { Strategy as GitHubStrategy } from 'passport-github2';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { env } from '../../config/env';
-import { prisma } from '../../lib/prisma';
+import { upsertOAuthUser } from './auth.service';
 
 export const configurePassport = () => {
   passport.use(
@@ -13,23 +14,14 @@ export const configurePassport = () => {
       },
       async (_accessToken: string, _refreshToken: string, profile: any, done: Function) => {
         try {
-          const user = await prisma.user.upsert({
-            where: { githubId: String(profile.id) },
-            update: {
-              username: profile.username,
-              name: profile.displayName || profile.username,
-              email: profile.emails?.[0]?.value,
-              avatarUrl: profile.photos?.[0]?.value,
-              githubUrl: profile.profileUrl,
-            },
-            create: {
-              githubId: String(profile.id),
-              username: profile.username,
-              name: profile.displayName || profile.username,
-              email: profile.emails?.[0]?.value,
-              avatarUrl: profile.photos?.[0]?.value,
-              githubUrl: profile.profileUrl,
-            },
+          const user = await upsertOAuthUser({
+            provider: 'github',
+            providerId: String(profile.id),
+            username: profile.username,
+            name: profile.displayName || profile.username,
+            email: profile.emails?.[0]?.value,
+            avatarUrl: profile.photos?.[0]?.value,
+            profileUrl: profile.profileUrl,
           });
           return done(null, user);
         } catch (err) {
@@ -38,4 +30,31 @@ export const configurePassport = () => {
       }
     )
   );
+
+  if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_CALLBACK_URL) {
+    passport.use(
+      new GoogleStrategy(
+        {
+          clientID: env.GOOGLE_CLIENT_ID,
+          clientSecret: env.GOOGLE_CLIENT_SECRET,
+          callbackURL: env.GOOGLE_CALLBACK_URL,
+        },
+        async (_accessToken, _refreshToken, profile, done) => {
+          try {
+            const user = await upsertOAuthUser({
+              provider: 'google',
+              providerId: profile.id,
+              username: profile.emails?.[0]?.value?.split('@')[0] || profile.id,
+              name: profile.displayName,
+              email: profile.emails?.[0]?.value,
+              avatarUrl: profile.photos?.[0]?.value,
+            });
+            return done(null, user);
+          } catch (err) {
+            return done(err);
+          }
+        }
+      )
+    );
+  }
 };

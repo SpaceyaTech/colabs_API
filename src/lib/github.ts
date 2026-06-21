@@ -44,6 +44,66 @@ export const getUserContributions = async (username: string) => {
   return data;
 };
 
+type ContributionDay = { date: string; count: number };
+
+export const fetchGitHubContributionCalendar = async (
+  username: string
+): Promise<ContributionDay[]> => {
+  const cacheKey = `github:calendar:${username}`;
+  const cached = await cacheGet<ContributionDay[]>(cacheKey);
+  if (cached) return cached;
+
+  if (!env.GITHUB_API_TOKEN) {
+    console.warn(`GITHUB_API_TOKEN not set — skipping heatmap for ${username}`);
+    return [];
+  }
+
+  const query = `
+    query($username: String!) {
+      user(login: $username) {
+        contributionsCollection {
+          contributionCalendar {
+            weeks {
+              contributionDays {
+                date
+                contributionCount
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const { data } = await githubApi.post('/graphql', {
+      query,
+      variables: { username },
+    });
+
+    if (data.errors?.length) {
+      console.warn(`GitHub GraphQL errors for ${username}:`, data.errors);
+      return [];
+    }
+
+    const weeks =
+      data.data?.user?.contributionsCollection?.contributionCalendar?.weeks ?? [];
+
+    const formattedData: ContributionDay[] = weeks.flatMap((week: { contributionDays: { date: string; contributionCount: number }[] }) =>
+      week.contributionDays.map((day) => ({
+        date: day.date,
+        count: day.contributionCount,
+      }))
+    );
+
+    await cacheSet(cacheKey, formattedData, 3600); // cache 1 hour
+    return formattedData;
+  } catch (err) {
+    console.error(`Failed to fetch GitHub contribution calendar for ${username}:`, err);
+    return [];
+  }
+};
+
 export const parseRepoUrl = (url: string): { owner: string; repo: string } | null => {
   const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
   if (!match) return null;

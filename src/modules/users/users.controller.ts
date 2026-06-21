@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../middleware/errorHandler';
 import { uploadFile } from '../../lib/minio';
-import { getUserContributions } from '../../lib/github';
+import { getUserContributions, fetchGitHubContributionCalendar } from '../../lib/github';
 
 const updateUserSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -52,15 +52,36 @@ export const updateProfile = async (req: Request, res: Response) => {
 export const getUserContributionStats = async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { username: req.params.username },
-    select: { username: true },
+    select: { username: true, id: true },
   });
   if (!user) throw new AppError('User not found', 404);
 
-  const githubData = await getUserContributions(user.username);
+  const [githubData, ghCalendar] = await Promise.all([
+    getUserContributions(user.username),
+    fetchGitHubContributionCalendar(user.username),
+  ]);
+
+  const claims = await prisma.issueClaim.findMany({
+    where: { userId: user.id },
+    select: { claimedAt: true },
+  });
+
+  const heatmap: Record<string, number> = {};
+  ghCalendar.forEach(item => {
+    heatmap[item.date] = item.count;
+  });
+
+  claims.forEach(c => {
+    const dateStr = c.claimedAt.toISOString().split('T')[0];
+    heatmap[dateStr] = (heatmap[dateStr] || 0) + 1;
+  });
+
   res.json({
     publicRepos: githubData.public_repos,
     followers: githubData.followers,
     following: githubData.following,
     githubCreatedAt: githubData.created_at,
+    heatmap: Object.entries(heatmap).map(([date, count]) => ({ date, count })),
+    totalPlatformContributions: claims.length,
   });
 };
