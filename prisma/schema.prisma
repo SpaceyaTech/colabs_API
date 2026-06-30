@@ -65,6 +65,24 @@ model User {
   proposals       Proposal[]
   teamsOwned      Team[]       @relation("TeamOwner")
   teamMemberships TeamMember[]
+  githubIntegration GitHubIntegration?
+}
+
+model GitHubIntegration {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  githubUserId   String   @unique
+  githubUsername String
+  profileUrl     String?
+  avatarUrl      String?
+  scope          String?
+  tokenType      String   @default("bearer")
+  accessTokenIv  String
+  accessTokenTag String
+  accessToken    String
+  connectedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Project {

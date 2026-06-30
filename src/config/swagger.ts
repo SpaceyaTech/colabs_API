@@ -21,6 +21,11 @@ const options: swaggerJsdoc.Options = {
         description:
           'Email/password registration, email verification, GitHub OAuth, Google OAuth, and session management.',
       },
+      {
+        name: 'Integrations',
+        description:
+          'Connected third-party accounts managed by authenticated users.',
+      },
       { name: 'Users', description: 'User profiles and contribution stats' },
       { name: 'Dashboard', description: 'User dashboard analytics' },
       { name: 'Projects', description: 'Open-source project registration and management' },
@@ -228,6 +233,12 @@ const AUTH_PATH_ORDER = [
   '/api/auth/logout',
 ];
 
+const INTEGRATION_PATH_ORDER = [
+  '/api/integrations/github',
+  '/api/integrations/github/connect',
+  '/api/integrations/github/callback',
+];
+
 const sortPathsAuthFirst = (spec: Record<string, unknown>) => {
   const paths = spec.paths as Record<string, unknown> | undefined;
   if (!paths) return spec;
@@ -236,7 +247,12 @@ const sortPathsAuthFirst = (spec: Record<string, unknown>) => {
     const authIndex = AUTH_PATH_ORDER.indexOf(path);
     if (authIndex >= 0) return authIndex;
     if (path.startsWith('/api/auth')) return AUTH_PATH_ORDER.length;
-    return AUTH_PATH_ORDER.length + 1;
+    const integrationIndex = INTEGRATION_PATH_ORDER.indexOf(path);
+    if (integrationIndex >= 0) return AUTH_PATH_ORDER.length + 1 + integrationIndex;
+    if (path.startsWith('/api/integrations')) {
+      return AUTH_PATH_ORDER.length + 1 + INTEGRATION_PATH_ORDER.length;
+    }
+    return AUTH_PATH_ORDER.length + 2 + INTEGRATION_PATH_ORDER.length;
   };
 
   const sorted = Object.entries(paths).sort(([a], [b]) => {
