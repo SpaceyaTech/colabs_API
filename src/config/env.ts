@@ -26,12 +26,6 @@ const envSchema = z.object({
   GITHUB_CLIENT_ID: z.string().min(1, 'GITHUB_CLIENT_ID is required'),
   GITHUB_CLIENT_SECRET: z.string().min(1, 'GITHUB_CLIENT_SECRET is required'),
   GITHUB_CALLBACK_URL: z.string().url(),
-  GITHUB_INTEGRATION_CLIENT_ID: z.string().optional(),
-  GITHUB_INTEGRATION_CLIENT_SECRET: z.string().optional(),
-  GITHUB_INTEGRATION_CALLBACK_URL: z
-    .string()
-    .url()
-    .default('http://localhost:8000/api/integrations/github/callback'),
   GITHUB_API_TOKEN: z.string().optional(),
 
   GOOGLE_CLIENT_ID: z.string().optional(),

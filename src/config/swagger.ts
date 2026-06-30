@@ -236,7 +236,6 @@ const AUTH_PATH_ORDER = [
 const INTEGRATION_PATH_ORDER = [
   '/api/integrations/github',
   '/api/integrations/github/connect',
-  '/api/integrations/github/callback',
 ];
 
 const sortPathsAuthFirst = (spec: Record<string, unknown>) => {

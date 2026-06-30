@@ -4,7 +4,6 @@ import {
   createGitHubConnectUrl,
   deleteGitHubIntegration,
   getGitHubIntegrationStatus,
-  handleGitHubIntegrationCallback,
 } from './integrations.controller';
 
 const router = Router();
@@ -37,7 +36,7 @@ router.get('/github', authenticate, getGitHubIntegrationStatus);
  * /api/integrations/github/connect:
  *   post:
  *     summary: Start GitHub account connection flow
- *     description: Returns a GitHub authorization URL for the authenticated user. The access token is exchanged and stored only by the server during callback handling.
+ *     description: Returns a GitHub authorization URL for the authenticated user. GitHub redirects to the shared auth callback, where signed state tells the server to connect an integration instead of logging in.
  *     tags: [Integrations]
  *     security:
  *       - cookieAuth: []
@@ -55,36 +54,6 @@ router.get('/github', authenticate, getGitHubIntegrationStatus);
  *         description: Not authenticated
  */
 router.post('/github/connect', authenticate, createGitHubConnectUrl);
-
-/**
- * @swagger
- * /api/integrations/github/callback:
- *   get:
- *     summary: Complete GitHub account connection flow
- *     description: GitHub redirects here with an OAuth code. The server exchanges the code for an access token, stores it server-side only, and returns safe integration metadata.
- *     tags: [Integrations]
- *     security:
- *       - cookieAuth: []
- *     parameters:
- *       - in: query
- *         name: code
- *         required: true
- *         schema:
- *           type: string
- *       - in: query
- *         name: state
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: GitHub integration connected
- *       400:
- *         description: Invalid callback state or code
- *       401:
- *         description: Not authenticated
- */
-router.get('/github/callback', authenticate, handleGitHubIntegrationCallback);
 
 /**
  * @swagger

@@ -11,10 +11,6 @@ const GITHUB_USER_URL = 'https://api.github.com/user';
 const GITHUB_SCOPE = 'read:user user:email';
 const STATE_TTL = '10m';
 
-const githubClientId = () => env.GITHUB_INTEGRATION_CLIENT_ID || env.GITHUB_CLIENT_ID;
-const githubClientSecret = () =>
-  env.GITHUB_INTEGRATION_CLIENT_SECRET || env.GITHUB_CLIENT_SECRET;
-
 type GitHubIntegrationState = {
   userId: string;
   purpose: 'github_integration';
@@ -68,10 +64,16 @@ const verifyState = (state: string): GitHubIntegrationState => {
   }
 };
 
+export const isGitHubIntegrationState = (state: unknown) => {
+  if (typeof state !== 'string') return false;
+  const decoded = jwt.decode(state) as Partial<GitHubIntegrationState> | null;
+  return decoded?.purpose === 'github_integration';
+};
+
 export const buildGitHubConnectUrl = (userId: string) => {
   const params = new URLSearchParams({
-    client_id: githubClientId(),
-    redirect_uri: env.GITHUB_INTEGRATION_CALLBACK_URL,
+    client_id: env.GITHUB_CLIENT_ID,
+    redirect_uri: env.GITHUB_CALLBACK_URL,
     scope: GITHUB_SCOPE,
     state: issueState(userId),
   });
@@ -111,10 +113,10 @@ export const connectGitHubIntegration = async (
   const { data: tokenData } = await axios.post<GitHubTokenResponse>(
     GITHUB_TOKEN_URL,
     {
-      client_id: githubClientId(),
-      client_secret: githubClientSecret(),
+      client_id: env.GITHUB_CLIENT_ID,
+      client_secret: env.GITHUB_CLIENT_SECRET,
       code,
-      redirect_uri: env.GITHUB_INTEGRATION_CALLBACK_URL,
+      redirect_uri: env.GITHUB_CALLBACK_URL,
     },
     {
       headers: {

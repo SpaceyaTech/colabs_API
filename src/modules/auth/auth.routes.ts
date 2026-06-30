@@ -258,7 +258,7 @@ router.get('/github', authLimiter, githubLogin);
  * /api/auth/github/callback:
  *   get:
  *     summary: GitHub OAuth callback
- *     description: GitHub redirects here after authorization. Creates or updates the user, sets a JWT cookie, and redirects to the frontend.
+ *     description: GitHub redirects here after authorization. Without integration state, creates or updates the user, sets a JWT cookie, and redirects to the frontend. With signed integration state and an existing session cookie, connects GitHub to the authenticated user and stores the access token server-side only.
  *     tags: [Auth]
  *     parameters:
  *       - in: query
