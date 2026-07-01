@@ -3,7 +3,8 @@ import {
   submitCollaborationRequest,
   getCollaborationRequestsForProject,
   getMyCollaborationRequests,
-  updateCollaborationRequestStatus,
+  acceptCollaborationRequest,
+  rejectCollaborationRequest,
   withdrawCollaborationRequest,
 } from './collaborations.controller';
 import { authenticate, requireVerifiedEmail } from '../../middleware/auth';
@@ -127,9 +128,9 @@ projectCollaborationRouter.get(
 
 /**
  * @swagger
- * /api/projects/{projectId}/collaboration-requests/{requestId}:
- *   put:
- *     summary: Accept or reject a collaboration request (project owner only)
+ * /api/projects/{projectId}/collaboration-requests/{requestId}/accept:
+ *   post:
+ *     summary: Accept a collaboration request (project owner only)
  *     tags: [Collaborations]
  *     security:
  *       - cookieAuth: []
@@ -144,21 +145,13 @@ projectCollaborationRouter.get(
  *         required: true
  *         schema:
  *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - status
- *             properties:
- *               status:
- *                 type: string
- *                 enum: [ACCEPTED, REJECTED]
  *     responses:
  *       200:
- *         description: Collaboration request status updated
+ *         description: Collaboration request accepted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CollaborationRequest'
  *       400:
  *         description: Request is not pending
  *       401:
@@ -168,11 +161,53 @@ projectCollaborationRouter.get(
  *       404:
  *         description: Project or request not found
  */
-projectCollaborationRouter.put(
-  '/:requestId',
+projectCollaborationRouter.post(
+  '/:requestId/accept',
   authenticate,
   requireVerifiedEmail,
-  updateCollaborationRequestStatus
+  acceptCollaborationRequest
+);
+
+/**
+ * @swagger
+ * /api/projects/{projectId}/collaboration-requests/{requestId}/reject:
+ *   post:
+ *     summary: Reject a collaboration request (project owner only)
+ *     tags: [Collaborations]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Collaboration request rejected
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CollaborationRequest'
+ *       400:
+ *         description: Request is not pending
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not the project owner
+ *       404:
+ *         description: Project or request not found
+ */
+projectCollaborationRouter.post(
+  '/:requestId/reject',
+  authenticate,
+  requireVerifiedEmail,
+  rejectCollaborationRequest
 );
 
 const myCollaborationRouter = Router();

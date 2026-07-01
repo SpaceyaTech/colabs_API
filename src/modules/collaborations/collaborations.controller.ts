@@ -6,10 +6,9 @@ import {
   collaborationListQuerySchema,
   createCollaborationRequestSchema,
   findActiveCollaborationRequest,
-  getCollaborationRequestForProject,
   getProjectForCollaboration,
   isUniqueConstraintError,
-  updateCollaborationStatusSchema,
+  resolveCollaborationRequest,
 } from './collaborations.service';
 
 export const submitCollaborationRequest = async (req: Request, res: Response) => {
@@ -94,26 +93,24 @@ export const getCollaborationRequestsForProject = async (req: Request, res: Resp
   res.json({ requests, total, page, limit });
 };
 
-export const updateCollaborationRequestStatus = async (req: Request, res: Response) => {
-  const project = await getProjectForCollaboration(req.params.projectId);
-  if (project.ownerId !== req.user!.id) throw new AppError('Not authorized', 403);
+export const acceptCollaborationRequest = async (req: Request, res: Response) => {
+  const updated = await resolveCollaborationRequest(
+    req.params.projectId,
+    req.params.requestId,
+    req.user!.id,
+    CollaborationRequestStatus.ACCEPTED
+  );
 
-  const { status } = updateCollaborationStatusSchema.parse(req.body);
-  const request = await getCollaborationRequestForProject(project.id, req.params.requestId);
+  res.json(updated);
+};
 
-  if (request.status !== CollaborationRequestStatus.PENDING) {
-    throw new AppError('Only pending collaboration requests can be updated', 400);
-  }
-
-  const updated = await prisma.collaborationRequest.update({
-    where: { id: request.id },
-    data: { status },
-    include: {
-      user: {
-        select: { username: true, name: true, avatarUrl: true, contributorScore: true },
-      },
-    },
-  });
+export const rejectCollaborationRequest = async (req: Request, res: Response) => {
+  const updated = await resolveCollaborationRequest(
+    req.params.projectId,
+    req.params.requestId,
+    req.user!.id,
+    CollaborationRequestStatus.REJECTED
+  );
 
   res.json(updated);
 };
