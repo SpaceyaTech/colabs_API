@@ -23,10 +23,6 @@ export const collaborationListQuerySchema = z.object({
   status: z.nativeEnum(CollaborationRequestStatus).optional(),
 });
 
-export const updateCollaborationStatusSchema = z.object({
-  status: z.enum(['ACCEPTED', 'REJECTED']),
-});
-
 export const isUniqueConstraintError = (err: unknown) =>
   err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
 
@@ -54,4 +50,30 @@ export const getCollaborationRequestForProject = async (
   });
   if (!request) throw new AppError('Collaboration request not found', 404);
   return request;
+};
+
+export const resolveCollaborationRequest = async (
+  projectId: string,
+  requestId: string,
+  ownerId: string,
+  status: Extract<CollaborationRequestStatus, 'ACCEPTED' | 'REJECTED'>
+) => {
+  const project = await getProjectForCollaboration(projectId);
+  if (project.ownerId !== ownerId) throw new AppError('Not authorized', 403);
+
+  const request = await getCollaborationRequestForProject(project.id, requestId);
+  if (request.status !== CollaborationRequestStatus.PENDING) {
+    const action = status === CollaborationRequestStatus.ACCEPTED ? 'accepted' : 'rejected';
+    throw new AppError(`Only pending collaboration requests can be ${action}`, 400);
+  }
+
+  return prisma.collaborationRequest.update({
+    where: { id: request.id },
+    data: { status },
+    include: {
+      user: {
+        select: { username: true, name: true, avatarUrl: true, contributorScore: true },
+      },
+    },
+  });
 };
