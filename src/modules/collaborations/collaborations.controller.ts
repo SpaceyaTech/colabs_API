@@ -1,56 +1,137 @@
 import { Request, Response } from 'express';
-import { z } from 'zod';
-import { ExperienceLevel } from '@prisma/client';
+import { CollaborationRequestStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../middleware/errorHandler';
-
-const createCollaborationRequestSchema = z.object({
-  message: z.string().min(20).max(2000),
-  skills: z.array(z.string()).min(1),
-  experienceLevel: z.nativeEnum(ExperienceLevel),
-});
+import {
+  collaborationListQuerySchema,
+  createCollaborationRequestSchema,
+  findActiveCollaborationRequest,
+  getCollaborationRequestForProject,
+  getProjectForCollaboration,
+  isUniqueConstraintError,
+  updateCollaborationStatusSchema,
+} from './collaborations.service';
 
 export const submitCollaborationRequest = async (req: Request, res: Response) => {
-  const project = await prisma.project.findUnique({ where: { id: req.params.projectId } });
-  if (!project) throw new AppError('Project not found', 404);
+  const project = await getProjectForCollaboration(req.params.projectId);
   if (project.ownerId === req.user!.id) {
     throw new AppError('Cannot request collaboration on your own project', 400);
   }
 
-  const existing = await prisma.collaborationRequest.findUnique({
-    where: { projectId_userId: { projectId: req.params.projectId, userId: req.user!.id } },
-  });
-  if (existing) throw new AppError('You already submitted a collaboration request for this project', 409);
-
   const body = createCollaborationRequestSchema.parse(req.body);
-  const collaborationRequest = await prisma.collaborationRequest.create({
-    data: { ...body, projectId: req.params.projectId, userId: req.user!.id },
-  });
-  res.status(201).json(collaborationRequest);
+
+  const existing = await findActiveCollaborationRequest(project.id, req.user!.id);
+  if (existing) {
+    throw new AppError('You already have an active collaboration request for this project', 409);
+  }
+
+  try {
+    const collaborationRequest = await prisma.collaborationRequest.create({
+      data: {
+        ...body,
+        skills: body.skills.map((skill) => skill.trim()),
+        projectId: project.id,
+        userId: req.user!.id,
+      },
+    });
+    res.status(201).json(collaborationRequest);
+  } catch (err) {
+    if (isUniqueConstraintError(err)) {
+      throw new AppError('You already have an active collaboration request for this project', 409);
+    }
+    throw err;
+  }
 };
 
 export const getMyCollaborationRequests = async (req: Request, res: Response) => {
-  const requests = await prisma.collaborationRequest.findMany({
-    where: { userId: req.user!.id },
-    include: {
-      project: { select: { id: true, name: true, githubRepoUrl: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-  res.json(requests);
+  const { page, limit, status } = collaborationListQuerySchema.parse(req.query);
+  const where = {
+    userId: req.user!.id,
+    ...(status ? { status } : {}),
+  };
+
+  const [requests, total] = await Promise.all([
+    prisma.collaborationRequest.findMany({
+      where,
+      include: {
+        project: { select: { id: true, name: true, githubRepoUrl: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.collaborationRequest.count({ where }),
+  ]);
+
+  res.json({ requests, total, page, limit });
 };
 
 export const getCollaborationRequestsForProject = async (req: Request, res: Response) => {
-  const project = await prisma.project.findUnique({ where: { id: req.params.projectId } });
-  if (!project) throw new AppError('Project not found', 404);
+  const project = await getProjectForCollaboration(req.params.projectId);
   if (project.ownerId !== req.user!.id) throw new AppError('Not authorized', 403);
 
-  const requests = await prisma.collaborationRequest.findMany({
-    where: { projectId: req.params.projectId },
+  const { page, limit, status } = collaborationListQuerySchema.parse(req.query);
+  const where = {
+    projectId: project.id,
+    ...(status ? { status } : {}),
+  };
+
+  const [requests, total] = await Promise.all([
+    prisma.collaborationRequest.findMany({
+      where,
+      include: {
+        user: {
+          select: { username: true, name: true, avatarUrl: true, contributorScore: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.collaborationRequest.count({ where }),
+  ]);
+
+  res.json({ requests, total, page, limit });
+};
+
+export const updateCollaborationRequestStatus = async (req: Request, res: Response) => {
+  const project = await getProjectForCollaboration(req.params.projectId);
+  if (project.ownerId !== req.user!.id) throw new AppError('Not authorized', 403);
+
+  const { status } = updateCollaborationStatusSchema.parse(req.body);
+  const request = await getCollaborationRequestForProject(project.id, req.params.requestId);
+
+  if (request.status !== CollaborationRequestStatus.PENDING) {
+    throw new AppError('Only pending collaboration requests can be updated', 400);
+  }
+
+  const updated = await prisma.collaborationRequest.update({
+    where: { id: request.id },
+    data: { status },
     include: {
-      user: { select: { username: true, name: true, avatarUrl: true, contributorScore: true } },
+      user: {
+        select: { username: true, name: true, avatarUrl: true, contributorScore: true },
+      },
     },
-    orderBy: { createdAt: 'desc' },
   });
-  res.json(requests);
+
+  res.json(updated);
+};
+
+export const withdrawCollaborationRequest = async (req: Request, res: Response) => {
+  const request = await prisma.collaborationRequest.findUnique({
+    where: { id: req.params.requestId },
+  });
+  if (!request) throw new AppError('Collaboration request not found', 404);
+  if (request.userId !== req.user!.id) throw new AppError('Not authorized', 403);
+  if (request.status !== CollaborationRequestStatus.PENDING) {
+    throw new AppError('Only pending collaboration requests can be withdrawn', 400);
+  }
+
+  const updated = await prisma.collaborationRequest.update({
+    where: { id: request.id },
+    data: { status: CollaborationRequestStatus.WITHDRAWN },
+  });
+
+  res.json({ message: 'Collaboration request withdrawn', request: updated });
 };

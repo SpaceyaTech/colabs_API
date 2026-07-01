@@ -3,8 +3,10 @@ import {
   submitCollaborationRequest,
   getCollaborationRequestsForProject,
   getMyCollaborationRequests,
+  updateCollaborationRequestStatus,
+  withdrawCollaborationRequest,
 } from './collaborations.controller';
-import { authenticate } from '../../middleware/auth';
+import { authenticate, requireVerifiedEmail } from '../../middleware/auth';
 
 const projectCollaborationRouter = Router({ mergeParams: true });
 
@@ -42,8 +44,11 @@ const projectCollaborationRouter = Router({ mergeParams: true });
  *             properties:
  *               message:
  *                 type: string
+ *                 minLength: 20
  *               skills:
  *                 type: array
+ *                 minItems: 1
+ *                 maxItems: 20
  *                 items:
  *                   type: string
  *               experienceLevel:
@@ -60,12 +65,19 @@ const projectCollaborationRouter = Router({ mergeParams: true });
  *         description: Cannot request collaboration on your own project
  *       401:
  *         description: Not authenticated
+ *       403:
+ *         description: Email not verified
  *       404:
  *         description: Project not found
  *       409:
- *         description: A collaboration request already exists for this project
+ *         description: An active collaboration request already exists for this project
  */
-projectCollaborationRouter.post('/', authenticate, submitCollaborationRequest);
+projectCollaborationRouter.post(
+  '/',
+  authenticate,
+  requireVerifiedEmail,
+  submitCollaborationRequest
+);
 
 /**
  * @swagger
@@ -81,15 +93,24 @@ projectCollaborationRouter.post('/', authenticate, submitCollaborationRequest);
  *         required: true
  *         schema:
  *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, ACCEPTED, REJECTED, WITHDRAWN]
  *     responses:
  *       200:
- *         description: List of collaboration requests
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/CollaborationRequest'
+ *         description: Paginated list of collaboration requests
  *       401:
  *         description: Not authenticated
  *       403:
@@ -97,7 +118,62 @@ projectCollaborationRouter.post('/', authenticate, submitCollaborationRequest);
  *       404:
  *         description: Project not found
  */
-projectCollaborationRouter.get('/', authenticate, getCollaborationRequestsForProject);
+projectCollaborationRouter.get(
+  '/',
+  authenticate,
+  requireVerifiedEmail,
+  getCollaborationRequestsForProject
+);
+
+/**
+ * @swagger
+ * /api/projects/{projectId}/collaboration-requests/{requestId}:
+ *   put:
+ *     summary: Accept or reject a collaboration request (project owner only)
+ *     tags: [Collaborations]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [ACCEPTED, REJECTED]
+ *     responses:
+ *       200:
+ *         description: Collaboration request status updated
+ *       400:
+ *         description: Request is not pending
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not the project owner
+ *       404:
+ *         description: Project or request not found
+ */
+projectCollaborationRouter.put(
+  '/:requestId',
+  authenticate,
+  requireVerifiedEmail,
+  updateCollaborationRequestStatus
+);
 
 const myCollaborationRouter = Router();
 
@@ -109,18 +185,66 @@ const myCollaborationRouter = Router();
  *     tags: [Collaborations]
  *     security:
  *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, ACCEPTED, REJECTED, WITHDRAWN]
  *     responses:
  *       200:
- *         description: List of your collaboration requests
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/CollaborationRequest'
+ *         description: Paginated list of your collaboration requests
  *       401:
  *         description: Not authenticated
  */
-myCollaborationRouter.get('/mine', authenticate, getMyCollaborationRequests);
+myCollaborationRouter.get(
+  '/mine',
+  authenticate,
+  requireVerifiedEmail,
+  getMyCollaborationRequests
+);
+
+/**
+ * @swagger
+ * /api/collaboration-requests/{requestId}:
+ *   delete:
+ *     summary: Withdraw your pending collaboration request
+ *     tags: [Collaborations]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Collaboration request withdrawn
+ *       400:
+ *         description: Request is not pending
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not the request owner
+ *       404:
+ *         description: Request not found
+ */
+myCollaborationRouter.delete(
+  '/:requestId',
+  authenticate,
+  requireVerifiedEmail,
+  withdrawCollaborationRequest
+);
 
 export { projectCollaborationRouter, myCollaborationRouter };
