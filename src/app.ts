@@ -24,6 +24,7 @@ import projectRoutes from "./modules/projects/projects.routes";
 import issueRoutes from "./modules/issues/issues.routes";
 import gigRoutes from "./modules/gigs/gigs.routes";
 import proposalRoutes from "./modules/proposals/proposals.routes";
+import { projectCollaborationRouter, myCollaborationRouter } from "./modules/collaborations/collaborations.routes";
 import teamRoutes from "./modules/teams/teams.routes";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 
@@ -96,6 +97,8 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/issues", issueRoutes);
 app.use("/api/gigs", gigRoutes);
 app.use("/api/gigs/:gigId/proposals", proposalRoutes);
+app.use("/api/projects/:projectId/collaboration-requests", projectCollaborationRouter);
+app.use("/api/collaboration-requests", myCollaborationRouter);
 app.use("/api/teams", teamRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 

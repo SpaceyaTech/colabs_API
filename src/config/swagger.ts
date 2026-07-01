@@ -27,6 +27,7 @@ const options: swaggerJsdoc.Options = {
       { name: 'Issues', description: 'Open-source issues available for contributors to claim' },
       { name: 'Gigs', description: 'Freelance gig marketplace' },
       { name: 'Proposals', description: 'Gig proposals from freelancers' },
+      { name: 'Collaborations', description: 'Collaboration requests submitted on repositories' },
       { name: 'Teams', description: 'Collaborative teams' },
     ],
     components: {
@@ -114,6 +115,19 @@ const options: swaggerJsdoc.Options = {
             deliveryDays: { type: 'integer' },
             status: { type: 'string', enum: ['PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'] },
             gigId: { type: 'string' },
+            userId: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        CollaborationRequest: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            message: { type: 'string' },
+            skills: { type: 'array', items: { type: 'string' } },
+            experienceLevel: { type: 'string', enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'] },
+            status: { type: 'string', enum: ['PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'] },
+            projectId: { type: 'string' },
             userId: { type: 'string' },
             createdAt: { type: 'string', format: 'date-time' },
           },
