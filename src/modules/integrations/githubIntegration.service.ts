@@ -9,6 +9,7 @@ const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
 const GITHUB_SCOPE = 'read:user user:email public_repo';
+export const GITHUB_OAUTH_SCOPES = GITHUB_SCOPE.split(' ');
 const STATE_TTL = '10m';
 
 type GitHubIntegrationState = {
@@ -78,6 +79,84 @@ export const getUserGitHubAccessToken = async (userId: string) => {
   }
 
   return decryptAccessToken(integration);
+};
+
+type GitHubIntegrationProfile = {
+  userId: string;
+  accessToken: string;
+  githubUserId: string;
+  githubUsername: string;
+  profileUrl?: string;
+  avatarUrl?: string;
+  scope?: string;
+  tokenType?: string;
+};
+
+const saveGitHubIntegration = async ({
+  userId,
+  accessToken,
+  githubUserId,
+  githubUsername,
+  profileUrl,
+  avatarUrl,
+  scope,
+  tokenType = 'bearer',
+}: GitHubIntegrationProfile) => {
+  const existingIntegration = await prisma.gitHubIntegration.findUnique({
+    where: { githubUserId },
+    select: { userId: true },
+  });
+
+  if (existingIntegration && existingIntegration.userId !== userId) {
+    throw new AppError('This GitHub account is already connected to another user', 409);
+  }
+
+  const encryptedToken = encryptAccessToken(accessToken);
+
+  return prisma.gitHubIntegration.upsert({
+    where: { userId },
+    update: {
+      githubUserId,
+      githubUsername,
+      profileUrl,
+      avatarUrl,
+      scope: scope ?? GITHUB_SCOPE,
+      tokenType,
+      ...encryptedToken,
+    },
+    create: {
+      userId,
+      githubUserId,
+      githubUsername,
+      profileUrl,
+      avatarUrl,
+      scope: scope ?? GITHUB_SCOPE,
+      tokenType,
+      ...encryptedToken,
+    },
+    select: {
+      githubUserId: true,
+      githubUsername: true,
+      profileUrl: true,
+      avatarUrl: true,
+      scope: true,
+      connectedAt: true,
+      updatedAt: true,
+    },
+  });
+};
+
+export const syncGitHubIntegrationFromOAuthLogin = async (
+  params: Omit<GitHubIntegrationProfile, 'tokenType'>
+) => {
+  try {
+    await saveGitHubIntegration(params);
+  } catch (err) {
+    if (err instanceof AppError && err.statusCode === 409) {
+      return;
+    }
+    throw err;
+  }
 };
 
 const issueState = (userId: string) =>
@@ -174,47 +253,15 @@ export const connectGitHubIntegration = async (
     },
   });
 
-  const existingIntegration = await prisma.gitHubIntegration.findUnique({
-    where: { githubUserId: String(githubUser.id) },
-    select: { userId: true },
-  });
-
-  if (existingIntegration && existingIntegration.userId !== userId) {
-    throw new AppError('This GitHub account is already connected to another user', 409);
-  }
-
-  const encryptedToken = encryptAccessToken(tokenData.access_token);
-
-  const integration = await prisma.gitHubIntegration.upsert({
-    where: { userId },
-    update: {
-      githubUserId: String(githubUser.id),
-      githubUsername: githubUser.login,
-      profileUrl: githubUser.html_url,
-      avatarUrl: githubUser.avatar_url,
-      scope: tokenData.scope,
-      tokenType: tokenData.token_type || 'bearer',
-      ...encryptedToken,
-    },
-    create: {
-      userId,
-      githubUserId: String(githubUser.id),
-      githubUsername: githubUser.login,
-      profileUrl: githubUser.html_url,
-      avatarUrl: githubUser.avatar_url,
-      scope: tokenData.scope,
-      tokenType: tokenData.token_type || 'bearer',
-      ...encryptedToken,
-    },
-    select: {
-      githubUserId: true,
-      githubUsername: true,
-      profileUrl: true,
-      avatarUrl: true,
-      scope: true,
-      connectedAt: true,
-      updatedAt: true,
-    },
+  const integration = await saveGitHubIntegration({
+    userId,
+    accessToken: tokenData.access_token,
+    githubUserId: String(githubUser.id),
+    githubUsername: githubUser.login,
+    profileUrl: githubUser.html_url,
+    avatarUrl: githubUser.avatar_url,
+    scope: tokenData.scope,
+    tokenType: tokenData.token_type || 'bearer',
   });
 
   return { connected: true, integration };
