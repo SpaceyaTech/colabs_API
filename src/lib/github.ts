@@ -109,3 +109,44 @@ export const parseRepoUrl = (url: string): { owner: string; repo: string } | nul
   if (!match) return null;
   return { owner: match[1], repo: match[2].replace(/\.git$/, '') };
 };
+
+type GitHubUserRepo = {
+  id: number;
+  name: string;
+  full_name: string;
+  html_url: string;
+  description: string | null;
+  language: string | null;
+  stargazers_count: number;
+  forks_count: number;
+  topics?: string[];
+  private: boolean;
+};
+
+export const listUserRepositories = async (
+  accessToken: string,
+  options: {
+    page?: number;
+    perPage?: number;
+    type?: 'all' | 'owner' | 'public' | 'private' | 'member';
+    sort?: 'created' | 'updated' | 'pushed' | 'full_name';
+  } = {}
+) => {
+  const { page = 1, perPage = 30, type = 'owner', sort = 'updated' } = options;
+
+  const { data } = await axios.get<GitHubUserRepo[]>('/user/repos', {
+    baseURL: 'https://api.github.com',
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    params: {
+      page,
+      per_page: Math.min(perPage, 100),
+      type,
+      sort,
+    },
+  });
+
+  return data;
+};

@@ -6,7 +6,8 @@ const { combine, timestamp, colorize, printf, json } = winston.format;
 const devFormat = combine(
   colorize(),
   timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  printf(({ level, message, timestamp, ...meta }) => {
+  printf((info) => {
+    const { level, message, timestamp, ...meta } = info;
     const metaStr = Object.keys(meta).length ? `\n${JSON.stringify(meta, null, 2)}` : '';
     return `[${timestamp}] ${level}: ${message}${metaStr}`;
   })

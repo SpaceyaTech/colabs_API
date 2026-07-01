@@ -35,6 +35,20 @@ enum IssueStatus {
   CLOSED
 }
 
+enum ExperienceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum CollaborationRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
 model User {
   id                       String    @id @default(cuid())
   githubId                 String?   @unique
@@ -59,29 +73,49 @@ model User {
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 
-  projects        Project[]
-  issueClaims     IssueClaim[]
-  gigsPosted      Gig[]        @relation("GigClient")
-  proposals       Proposal[]
-  teamsOwned      Team[]       @relation("TeamOwner")
-  teamMemberships TeamMember[]
+  projects              Project[]
+  issueClaims           IssueClaim[]
+  gigsPosted            Gig[]                  @relation("GigClient")
+  proposals             Proposal[]
+  teamsOwned            Team[]                 @relation("TeamOwner")
+  teamMemberships       TeamMember[]
+  collaborationRequests CollaborationRequest[]
+  githubIntegration     GitHubIntegration?
+}
+
+model GitHubIntegration {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  githubUserId   String   @unique
+  githubUsername String
+  profileUrl     String?
+  avatarUrl      String?
+  scope          String?
+  tokenType      String   @default("bearer")
+  accessTokenIv  String
+  accessTokenTag String
+  accessToken    String
+  connectedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  githubRepoUrl String @unique
-  name        String
-  description String?
-  language    String?
-  stars       Int      @default(0)
-  forks       Int      @default(0)
-  topics      String[]
-  logoUrl     String?
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
-  issues      Issue[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                    String                 @id @default(cuid())
+  githubRepoUrl         String                 @unique
+  name                  String
+  description           String?
+  language              String?
+  stars                 Int                    @default(0)
+  forks                 Int                    @default(0)
+  topics                String[]
+  logoUrl               String?
+  ownerId               String
+  owner                 User                   @relation(fields: [ownerId], references: [id])
+  issues                Issue[]
+  collaborationRequests CollaborationRequest[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 }
 
 model Issue {
@@ -170,4 +204,21 @@ model TeamMember {
   joinedAt DateTime @default(now())
 
   @@unique([teamId, userId])
+}
+
+model CollaborationRequest {
+  id              String                     @id @default(cuid())
+  message         String
+  skills          String[]
+  experienceLevel ExperienceLevel
+  status          CollaborationRequestStatus @default(PENDING)
+  projectId       String
+  project         Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  @@index([projectId])
+  @@index([userId])
 }

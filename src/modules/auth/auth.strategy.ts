@@ -3,6 +3,7 @@ import { Strategy as GitHubStrategy } from 'passport-github2';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { env } from '../../config/env';
 import { upsertOAuthUser } from './auth.service';
+import { syncGitHubIntegrationFromOAuthLogin } from '../integrations/githubIntegration.service';
 
 export const configurePassport = () => {
   passport.use(
@@ -12,7 +13,7 @@ export const configurePassport = () => {
         clientSecret: env.GITHUB_CLIENT_SECRET,
         callbackURL: env.GITHUB_CALLBACK_URL,
       },
-      async (_accessToken: string, _refreshToken: string, profile: any, done: Function) => {
+      async (accessToken: string, _refreshToken: string, profile: any, done: Function) => {
         try {
           const user = await upsertOAuthUser({
             provider: 'github',
@@ -23,6 +24,16 @@ export const configurePassport = () => {
             avatarUrl: profile.photos?.[0]?.value,
             profileUrl: profile.profileUrl,
           });
+
+          await syncGitHubIntegrationFromOAuthLogin({
+            userId: user.id,
+            accessToken,
+            githubUserId: String(profile.id),
+            githubUsername: profile.username,
+            profileUrl: profile.profileUrl,
+            avatarUrl: profile.photos?.[0]?.value,
+          });
+
           return done(null, user);
         } catch (err) {
           return done(err);

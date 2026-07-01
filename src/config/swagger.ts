@@ -21,12 +21,18 @@ const options: swaggerJsdoc.Options = {
         description:
           'Email/password registration, email verification, GitHub OAuth, Google OAuth, and session management.',
       },
+      {
+        name: 'Integrations',
+        description:
+          'Connected third-party accounts managed by authenticated users.',
+      },
       { name: 'Users', description: 'User profiles and contribution stats' },
       { name: 'Dashboard', description: 'User dashboard analytics' },
       { name: 'Projects', description: 'Open-source project registration and management' },
       { name: 'Issues', description: 'Open-source issues available for contributors to claim' },
       { name: 'Gigs', description: 'Freelance gig marketplace' },
       { name: 'Proposals', description: 'Gig proposals from freelancers' },
+      { name: 'Collaborations', description: 'Collaboration requests submitted on repositories' },
       { name: 'Teams', description: 'Collaborative teams' },
     ],
     components: {
@@ -114,6 +120,19 @@ const options: swaggerJsdoc.Options = {
             deliveryDays: { type: 'integer' },
             status: { type: 'string', enum: ['PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'] },
             gigId: { type: 'string' },
+            userId: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        CollaborationRequest: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            message: { type: 'string' },
+            skills: { type: 'array', items: { type: 'string' } },
+            experienceLevel: { type: 'string', enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'] },
+            status: { type: 'string', enum: ['PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'] },
+            projectId: { type: 'string' },
             userId: { type: 'string' },
             createdAt: { type: 'string', format: 'date-time' },
           },
@@ -228,6 +247,11 @@ const AUTH_PATH_ORDER = [
   '/api/auth/logout',
 ];
 
+const INTEGRATION_PATH_ORDER = [
+  '/api/integrations/github',
+  '/api/integrations/github/connect',
+];
+
 const sortPathsAuthFirst = (spec: Record<string, unknown>) => {
   const paths = spec.paths as Record<string, unknown> | undefined;
   if (!paths) return spec;
@@ -236,7 +260,12 @@ const sortPathsAuthFirst = (spec: Record<string, unknown>) => {
     const authIndex = AUTH_PATH_ORDER.indexOf(path);
     if (authIndex >= 0) return authIndex;
     if (path.startsWith('/api/auth')) return AUTH_PATH_ORDER.length;
-    return AUTH_PATH_ORDER.length + 1;
+    const integrationIndex = INTEGRATION_PATH_ORDER.indexOf(path);
+    if (integrationIndex >= 0) return AUTH_PATH_ORDER.length + 1 + integrationIndex;
+    if (path.startsWith('/api/integrations')) {
+      return AUTH_PATH_ORDER.length + 1 + INTEGRATION_PATH_ORDER.length;
+    }
+    return AUTH_PATH_ORDER.length + 2 + INTEGRATION_PATH_ORDER.length;
   };
 
   const sorted = Object.entries(paths).sort(([a], [b]) => {
