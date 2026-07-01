@@ -2,11 +2,19 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../middleware/errorHandler';
-import { getRepoInfo, getRepoIssues, parseRepoUrl } from '../../lib/github';
+import { getRepoInfo, getRepoIssues, listUserRepositories, parseRepoUrl } from '../../lib/github';
+import { getUserGitHubAccessToken } from '../integrations/githubIntegration.service';
 import { uploadFile } from '../../lib/minio';
 
 const createProjectSchema = z.object({
   githubRepoUrl: z.string().url().includes('github.com'),
+});
+
+const githubReposQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  perPage: z.coerce.number().int().min(1).max(100).default(30),
+  type: z.enum(['all', 'owner', 'public', 'private', 'member']).default('owner'),
+  sort: z.enum(['created', 'updated', 'pushed', 'full_name']).default('updated'),
 });
 
 export const listProjects = async (req: Request, res: Response) => {
@@ -31,6 +39,55 @@ export const listProjects = async (req: Request, res: Response) => {
   ]);
 
   res.json({ projects, total, page: parseInt(page), limit: parseInt(limit) });
+};
+
+export const listGitHubReposForProject = async (req: Request, res: Response) => {
+  const query = githubReposQuerySchema.parse(req.query);
+  const accessToken = await getUserGitHubAccessToken(req.user!.id);
+
+  let repos;
+  try {
+    repos = await listUserRepositories(accessToken, query);
+  } catch (err: any) {
+    const status = err?.response?.status;
+    if (status === 401) {
+      throw new AppError('GitHub token expired. Reconnect your GitHub account.', 401);
+    }
+    if (status === 403) {
+      throw new AppError(
+        'GitHub token cannot list repositories. Reconnect with repo access.',
+        403
+      );
+    }
+    throw err;
+  }
+
+  const repoUrls = repos.map((repo) => repo.html_url);
+  const registeredProjects = repoUrls.length
+    ? await prisma.project.findMany({
+        where: { githubRepoUrl: { in: repoUrls } },
+        select: { githubRepoUrl: true },
+      })
+    : [];
+
+  const registeredUrls = new Set(registeredProjects.map((project) => project.githubRepoUrl));
+
+  res.json({
+    repositories: repos.map((repo) => ({
+      githubRepoUrl: repo.html_url,
+      name: repo.name,
+      fullName: repo.full_name,
+      description: repo.description,
+      language: repo.language,
+      stars: repo.stargazers_count,
+      forks: repo.forks_count,
+      topics: repo.topics ?? [],
+      isPrivate: repo.private,
+      isRegistered: registeredUrls.has(repo.html_url),
+    })),
+    page: query.page,
+    perPage: query.perPage,
+  });
 };
 
 export const createProject = async (req: Request, res: Response) => {

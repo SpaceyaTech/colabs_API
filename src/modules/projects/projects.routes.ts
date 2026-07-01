@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { listProjects, createProject, getProject, syncProjectIssues } from './projects.controller';
+import { listProjects, createProject, getProject, syncProjectIssues, listGitHubReposForProject } from './projects.controller';
 import { authenticate } from '../../middleware/auth';
 import { upload } from '../../lib/minio';
 
@@ -40,6 +40,48 @@ const router = Router();
  *                 $ref: '#/components/schemas/Project'
  */
 router.get('/', listProjects);
+
+/**
+ * @swagger
+ * /api/projects/github-repos:
+ *   get:
+ *     summary: List GitHub repositories for project creation
+ *     description: Returns repositories from the authenticated user's connected GitHub account. Use githubRepoUrl when creating a project.
+ *     tags: [Projects]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: perPage
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [all, owner, public, private, member]
+ *           default: owner
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [created, updated, pushed, full_name]
+ *           default: updated
+ *     responses:
+ *       200:
+ *         description: GitHub repositories available for registration
+ *       400:
+ *         description: GitHub account not connected
+ *       401:
+ *         description: Not authenticated or GitHub token expired
+ */
+router.get('/github-repos', authenticate, listGitHubReposForProject);
 
 /**
  * @swagger

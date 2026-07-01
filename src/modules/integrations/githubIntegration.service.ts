@@ -8,7 +8,7 @@ import { AppError } from '../../middleware/errorHandler';
 const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
-const GITHUB_SCOPE = 'read:user user:email';
+const GITHUB_SCOPE = 'read:user user:email public_repo';
 const STATE_TTL = '10m';
 
 type GitHubIntegrationState = {
@@ -43,6 +43,41 @@ const encryptAccessToken = (token: string) => {
     accessTokenIv: iv.toString('base64'),
     accessTokenTag: cipher.getAuthTag().toString('base64'),
   };
+};
+
+export const decryptAccessToken = (integration: {
+  accessToken: string;
+  accessTokenIv: string;
+  accessTokenTag: string;
+}) => {
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    tokenKey(),
+    Buffer.from(integration.accessTokenIv, 'base64')
+  );
+  decipher.setAuthTag(Buffer.from(integration.accessTokenTag, 'base64'));
+
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(integration.accessToken, 'base64')),
+    decipher.final(),
+  ]);
+
+  return decrypted.toString('utf8');
+};
+
+export const getUserGitHubAccessToken = async (userId: string) => {
+  const integration = await prisma.gitHubIntegration.findUnique({
+    where: { userId },
+  });
+
+  if (!integration) {
+    throw new AppError(
+      'Connect your GitHub account before listing repositories',
+      400
+    );
+  }
+
+  return decryptAccessToken(integration);
 };
 
 const issueState = (userId: string) =>
