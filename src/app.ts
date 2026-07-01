@@ -24,7 +24,10 @@ import projectRoutes from "./modules/projects/projects.routes";
 import issueRoutes from "./modules/issues/issues.routes";
 import gigRoutes from "./modules/gigs/gigs.routes";
 import proposalRoutes from "./modules/proposals/proposals.routes";
-import { projectCollaborationRouter, myCollaborationRouter } from "./modules/collaborations/collaborations.routes";
+import {
+  projectCollaborationRouter,
+  myCollaborationRouter,
+} from "./modules/collaborations/collaborations.routes";
 import teamRoutes from "./modules/teams/teams.routes";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 import integrationRoutes from "./modules/integrations/integrations.routes";
@@ -45,7 +48,11 @@ const allowedOrigins = [env.FRONTEND_URL, `http://localhost:${env.PORT}`];
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || env.NODE_ENV === "development") {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        env.NODE_ENV === "development"
+      ) {
         return callback(null, true);
       }
       callback(new Error("Not allowed by CORS"));
@@ -79,7 +86,7 @@ app.use(
         return a.localeCompare(b);
       },
     },
-  })
+  }),
 );
 
 // ── Health Check ─────────────────────────────────────────
@@ -98,7 +105,10 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/issues", issueRoutes);
 app.use("/api/gigs", gigRoutes);
 app.use("/api/gigs/:gigId/proposals", proposalRoutes);
-app.use("/api/projects/:projectId/collaboration-requests", projectCollaborationRouter);
+app.use(
+  "/api/projects/:projectId/collaboration-requests",
+  projectCollaborationRouter,
+);
 app.use("/api/collaboration-requests", myCollaborationRouter);
 app.use("/api/teams", teamRoutes);
 app.use("/api/dashboard", dashboardRoutes);
@@ -118,8 +128,8 @@ const start = async () => {
   startEmailWorker();
   const port = parseInt(env.PORT);
   app.listen(port, () => {
-    console.log(`🚀 Colabs API running on http://localhost:${port}`);
-    console.log(`📚 Environment: ${env.NODE_ENV}`);
+    console.log(`Colabs API running on http://localhost:${port}`);
+    console.log(`Environment: ${env.NODE_ENV}`);
   });
 };
 

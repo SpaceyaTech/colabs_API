@@ -35,5 +35,5 @@ export const startEmailWorker = () => {
   }, POLL_INTERVAL_MS);
 
   void processNextJob();
-  console.log('✅ Email worker started (event-driven with Redis retries)');
+  console.log('Email worker started (event-driven with Redis retries)');
 };
