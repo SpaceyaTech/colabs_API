@@ -27,3 +27,6 @@ prisma/generated/
 
 # Claude Code internal
 .claude/
+
+# Graphify
+graphify-out/
