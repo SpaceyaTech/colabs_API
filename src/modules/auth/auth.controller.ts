@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import passport from 'passport';
+import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../middleware/errorHandler';
+import { JwtPayload } from '../../middleware/auth';
 import {
   issueAuthToken,
   setAuthCookie,
@@ -19,6 +21,10 @@ import {
   resetPasswordWithToken,
   changePassword,
 } from './auth.service';
+import {
+  connectGitHubIntegration,
+  isGitHubIntegrationState,
+} from '../integrations/githubIntegration.service';
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -53,6 +59,32 @@ const finishOAuth = (res: Response, user: { id: string; role: string }) => {
   const token = issueAuthToken(user.id, user.role);
   setAuthCookie(res, token);
   res.redirect(`${env.FRONTEND_URL}/dashboard`);
+};
+
+const getAuthenticatedUserId = async (req: Request) => {
+  const token =
+    req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
+
+  if (!token) {
+    throw new AppError('Authentication required to connect GitHub', 401);
+  }
+
+  try {
+    const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 401);
+    }
+
+    return user.id;
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError('Invalid or expired token', 401);
+  }
 };
 
 export const register = async (req: Request, res: Response) => {
@@ -132,7 +164,20 @@ export const githubLogin = passport.authenticate('github', {
   session: false,
 });
 
-export const githubCallback = (req: Request, res: Response) => {
+export const githubCallback = async (req: Request, res: Response) => {
+  const code = req.query.code as string | undefined;
+  const state = req.query.state as string | undefined;
+
+  if (isGitHubIntegrationState(state)) {
+    if (!code || !state) {
+      throw new AppError('GitHub OAuth code and state are required', 400);
+    }
+
+    const userId = await getAuthenticatedUserId(req);
+    const result = await connectGitHubIntegration(userId, code, state);
+    return res.json(result);
+  }
+
   passport.authenticate('github', { session: false }, (err: Error, user: any) => {
     if (err || !user) {
       return res.redirect(`${env.FRONTEND_URL}/sign-in?error=github_auth_failed`);

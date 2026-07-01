@@ -27,6 +27,7 @@ import proposalRoutes from "./modules/proposals/proposals.routes";
 import { projectCollaborationRouter, myCollaborationRouter } from "./modules/collaborations/collaborations.routes";
 import teamRoutes from "./modules/teams/teams.routes";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes";
+import integrationRoutes from "./modules/integrations/integrations.routes";
 
 const app = express();
 
@@ -101,6 +102,7 @@ app.use("/api/projects/:projectId/collaboration-requests", projectCollaborationR
 app.use("/api/collaboration-requests", myCollaborationRouter);
 app.use("/api/teams", teamRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/integrations", integrationRoutes);
 
 // ── 404 Handler ──────────────────────────────────────────
 app.use((_req, res) => {
