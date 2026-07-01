@@ -23,6 +23,7 @@ import {
 } from './auth.service';
 import {
   connectGitHubIntegration,
+  GITHUB_OAUTH_SCOPES,
   isGitHubIntegrationState,
 } from '../integrations/githubIntegration.service';
 
@@ -160,7 +161,7 @@ export const changePasswordHandler = async (req: Request, res: Response) => {
 };
 
 export const githubLogin = passport.authenticate('github', {
-  scope: ['read:user', 'user:email'],
+  scope: GITHUB_OAUTH_SCOPES,
   session: false,
 });
 
