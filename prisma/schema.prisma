@@ -80,6 +80,24 @@ model User {
   teamsOwned            Team[]                 @relation("TeamOwner")
   teamMemberships       TeamMember[]
   collaborationRequests CollaborationRequest[]
+  githubIntegration     GitHubIntegration?
+}
+
+model GitHubIntegration {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  githubUserId   String   @unique
+  githubUsername String
+  profileUrl     String?
+  avatarUrl      String?
+  scope          String?
+  tokenType      String   @default("bearer")
+  accessTokenIv  String
+  accessTokenTag String
+  accessToken    String
+  connectedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Project {
@@ -195,11 +213,12 @@ model CollaborationRequest {
   experienceLevel ExperienceLevel
   status          CollaborationRequestStatus @default(PENDING)
   projectId       String
-  project         Project                    @relation(fields: [projectId], references: [id])
+  project         Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   userId          String
-  user            User                       @relation(fields: [userId], references: [id])
+  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt       DateTime                   @default(now())
   updatedAt       DateTime                   @updatedAt
 
-  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
 }
